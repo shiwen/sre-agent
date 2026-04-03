@@ -158,7 +158,7 @@ function GenericTable({ data, columns }: { data: Record<string, unknown>[]; colu
   );
 }
 
-function StateBadge({ state }: { state: string }) {
+function StateBadge({ state }: { state: string | undefined }) {
   const getStateColor = (state: string) => {
     const stateColors: Record<string, string> = {
       running: 'bg-green-500',
@@ -174,6 +174,10 @@ function StateBadge({ state }: { state: string }) {
     };
     return stateColors[state.toLowerCase()] || 'bg-gray-400';
   };
+  
+  if (!state) {
+    return <span className="bg-gray-400 text-white text-xs px-2 py-1 rounded-full uppercase">Unknown</span>;
+  }
   
   return (
     <span className={`${getStateColor(state)} text-white text-xs px-2 py-1 rounded-full uppercase`}>

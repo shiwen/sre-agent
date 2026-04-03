@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, HealthResponse, SparkApp, YunikornQueue } from '../types';
+import type { ChatRequest, ChatResponse, HealthResponse, SparkApp, YunikornQueue, Session } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -32,5 +32,11 @@ export async function getSparkApps(): Promise<SparkApp[]> {
 export async function getYunikornQueues(): Promise<YunikornQueue[]> {
   const response = await fetch(`${API_BASE}/yunikorn/queues`);
   if (!response.ok) throw new Error('Failed to fetch queues');
+  return response.json();
+}
+
+export async function getSessions(): Promise<{ sessions: Session[] }> {
+  const response = await fetch(`${API_BASE}/chat/sessions`);
+  if (!response.ok) throw new Error('Failed to fetch sessions');
   return response.json();
 }

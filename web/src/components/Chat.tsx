@@ -4,7 +4,7 @@ import { useChatStore } from '../hooks/useChat';
 import { Trash2, AlertCircle } from 'lucide-react';
 
 export default function Chat() {
-  const { messages, isLoading, error, sendMessage, clearMessages } = useChatStore();
+  const { messages, isLoading, error, send, clearMessages } = useChatStore();
   
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -38,7 +38,7 @@ export default function Chat() {
       <MessageList messages={messages} isLoading={isLoading} />
       
       {/* Input */}
-      <MessageInput onSend={sendMessage} isLoading={isLoading} />
+      <MessageInput onSend={send} isLoading={isLoading} />
     </div>
   );
 }

@@ -1,14 +1,14 @@
 import { create } from 'zustand';
-import type { Message, ChatRequest } from '../types';
+import type { Message, ChatRequest, StructuredData } from '../types';
 import { sendMessage } from '../api/client';
 
 interface ChatStore {
   messages: Message[];
-  conversationId: string | null;
+  sessionId: string | null;
   isLoading: boolean;
   error: string | null;
   addMessage: (message: Message) => void;
-  sendMessage: (content: string) => Promise<void>;
+  send: (content: string) => Promise<void>;
   clearMessages: () => void;
 }
 
@@ -16,7 +16,7 @@ const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).substr(
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
-  conversationId: null,
+  sessionId: null,
   isLoading: false,
   error: null,
   
@@ -24,7 +24,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     messages: [...state.messages, message]
   })),
   
-  sendMessage: async (content: string) => {
+  send: async (content: string) => {
     const userMessage: Message = {
       id: generateId(),
       role: 'user',
@@ -41,22 +41,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const request: ChatRequest = {
         message: content,
-        conversation_id: get().conversationId ?? undefined,
+        session_id: get().sessionId || undefined,
       };
       
       const response = await sendMessage(request);
+      
+      const structuredData: StructuredData | undefined = response.structured_data 
+        ? {
+            type: response.structured_data.type || 'table',
+            data: response.structured_data.data,
+            columns: response.structured_data.columns,
+          }
+        : undefined;
       
       const assistantMessage: Message = {
         id: generateId(),
         role: 'assistant',
         content: response.response,
         timestamp: new Date(),
-        structuredData: response.structured_data,
+        structuredData,
       };
       
       set((state) => ({
         messages: [...state.messages, assistantMessage],
-        conversationId: response.conversation_id,
+        sessionId: response.session_id || null,
         isLoading: false,
       }));
     } catch (err) {
@@ -70,7 +78,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
   clearMessages: () => set({
     messages: [],
-    conversationId: null,
+    sessionId: null,
     error: null,
   }),
 }));
