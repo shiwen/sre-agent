@@ -638,3 +638,92 @@ class TestPatrolAPIIntegration:
 
         # 清理
         engine_module._patrol_engine = None
+
+
+class TestPatrolRulesAPIEndpoints:
+    """巡检规则 API 端点测试"""
+
+    @pytest.mark.asyncio
+    async def test_rules_api_list(self):
+        """测试规则列表 API"""
+        rules = get_patrol_rules()
+        all_rules = rules.list_rules()
+
+        assert len(all_rules) == 4
+        rule_names = [r.name for r in all_rules]
+        assert "spark_failures" in rule_names
+        assert "queue_utilization" in rule_names
+
+    @pytest.mark.asyncio
+    async def test_rules_api_get(self):
+        """测试获取规则 API"""
+        rules = get_patrol_rules()
+        rule = rules.get_rule("spark_failures")
+
+        assert rule is not None
+        assert rule.name == "spark_failures"
+        assert rule.enabled is True
+
+    @pytest.mark.asyncio
+    async def test_rules_api_update(self):
+        """测试更新规则 API"""
+        rules = get_patrol_rules()
+        updated = rules.update_rule("spark_failures", {"enabled": False})
+
+        assert updated is not None
+        assert updated.enabled is False
+
+        # 恢复
+        rules.enable_rule("spark_failures")
+
+    @pytest.mark.asyncio
+    async def test_rules_api_threshold_update(self):
+        """测试阈值更新 API"""
+        rules = get_patrol_rules()
+        result = rules.set_threshold("queue_utilization", "warning_threshold", 85)
+
+        assert result is True
+
+        rule = rules.get_rule("queue_utilization")
+        assert rule.thresholds["warning_threshold"] == 85
+
+
+class TestSchedulerAPIEndpoints:
+    """调度器 API 端点测试"""
+
+    @pytest.mark.asyncio
+    async def test_scheduler_api_status_not_running(self):
+        """测试调度器状态 API"""
+        scheduler = PatrolScheduler()
+        status = scheduler.get_status()
+
+        assert status["running"] is False
+        assert status["next_run"] is None
+
+    @pytest.mark.asyncio
+    async def test_scheduler_api_start_interval(self):
+        """测试启动调度器 API（间隔模式）"""
+        scheduler = PatrolScheduler()
+        scheduler.start(interval_minutes=30)
+
+        status = scheduler.get_status()
+        assert status["running"] is True
+
+        scheduler.stop()
+
+    @pytest.mark.asyncio
+    async def test_scheduler_api_start_cron(self):
+        """测试启动调度器 API（Cron 模式）"""
+        scheduler = PatrolScheduler()
+        scheduler.start_with_cron("*/30 * * * *")
+
+        status = scheduler.get_status()
+        assert status["running"] is True
+
+        scheduler.stop()
+
+    def test_scheduler_api_invalid_cron(self):
+        """测试无效 Cron 表达式"""
+        scheduler = PatrolScheduler()
+        with pytest.raises(ValueError):
+            scheduler.start_with_cron("invalid")

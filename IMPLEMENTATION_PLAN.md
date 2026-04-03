@@ -12,7 +12,7 @@ Phase 2 Week 7: Patrol Engine
 - [x] Patrol scheduler implementation
 - [x] Patrol checks implementation  
 - [x] Patrol rules configuration
-- [ ] Patrol integration tests
+- [x] Patrol integration tests
 - [ ] Patrol API endpoints
 
 ### Phase 3: History Server Integration (Week 8)
