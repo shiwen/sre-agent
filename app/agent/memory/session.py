@@ -1,14 +1,12 @@
 """会话管理器"""
 
-from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 import hashlib
 import json
-from typing import Any
+from typing import Any, Callable
 import uuid
 
-from kubernetes import client, config
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 from structlog import get_logger
@@ -16,6 +14,14 @@ from structlog import get_logger
 from app.agent.llm.registry import get_llm_registry
 
 logger = get_logger()
+
+# K8s 客户端（可选依赖）
+try:
+    from kubernetes import client, config
+    KUBERNETES_AVAILABLE = True
+except ImportError:
+    KUBERNETES_AVAILABLE = False
+    logger.warning("kubernetes_not_available", fallback="memory_storage")
 
 
 class Session(BaseModel):
@@ -100,16 +106,15 @@ def handle_k8s_errors(func: Callable) -> Callable:
     """K8s 错误处理装饰器"""
     @wraps(func)
     def wrapper(*args, **kwargs):
+        if not KUBERNETES_AVAILABLE:
+            return None
         try:
             return func(*args, **kwargs)
-        except config.ConfigException:
-            logger.warning("k8s_config_not_found", fallback="memory")
-            return None
-        except client.exceptions.ApiException as e:
-            logger.warning("k8s_api_error", error=str(e), fallback="memory")
-            return None
         except Exception as e:
-            logger.error("k8s_unexpected_error", error=str(e))
+            if "ConfigException" in str(type(e).__name__):
+                logger.warning("k8s_config_not_found", fallback="memory")
+            else:
+                logger.warning("k8s_error", error=str(e), fallback="memory")
             return None
     return wrapper
 
@@ -126,7 +131,7 @@ class SessionManager:
         self._k8s_available = False
         self._k8s_core_v1 = None
 
-        if use_k8s:
+        if use_k8s and KUBERNETES_AVAILABLE:
             self._init_k8s_client()
 
     def _init_k8s_client(self) -> None:
@@ -173,7 +178,7 @@ class SessionManager:
     @handle_k8s_errors
     def _load_session_from_k8s(self, session_id: str) -> Session | None:
         """从 K8s ConfigMap 加载会话"""
-        if not self._k8s_available:
+        if not self._k8s_available or not self._k8s_core_v1:
             return None
 
         cm = self._k8s_core_v1.read_namespaced_config_map(
@@ -181,7 +186,7 @@ class SessionManager:
             namespace=self.CONFIGMAP_NAMESPACE,
         )
 
-        session_data = cm.data.get(session_id)
+        session_data = cm.data.get(session_id) if cm.data else None
         if session_data:
             return Session.from_dict(json.loads(session_data))
         return None
@@ -189,7 +194,7 @@ class SessionManager:
     @handle_k8s_errors
     def _save_session_to_k8s(self, session: Session) -> bool:
         """保存会话到 K8s ConfigMap"""
-        if not self._k8s_available:
+        if not self._k8s_available or not self._k8s_core_v1:
             return False
 
         cm = self._k8s_core_v1.read_namespaced_config_map(
@@ -212,7 +217,7 @@ class SessionManager:
     @handle_k8s_errors
     def _delete_session_from_k8s(self, session_id: str) -> bool:
         """从 K8s ConfigMap 删除会话"""
-        if not self._k8s_available:
+        if not self._k8s_available or not self._k8s_core_v1:
             return False
 
         cm = self._k8s_core_v1.read_namespaced_config_map(
