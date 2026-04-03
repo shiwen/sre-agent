@@ -7,6 +7,7 @@ from structlog import get_logger
 from app.infrastructure.k8s_client import get_k8s_client
 from app.infrastructure.yunikorn_client import get_yunikorn_client
 from app.patrol.engine import BaseCheck, CheckResult
+from app.patrol.rules import get_patrol_rules
 
 logger = get_logger()
 
@@ -18,9 +19,17 @@ class SparkFailureCheck(BaseCheck):
     description = "检查最近失败的 Spark 任务"
     enabled = True
 
-    # 配置
+    # 默认配置
     failure_threshold = 3  # 触发警告的失败数量
     time_window_hours = 1  # 时间窗口（小时）
+
+    def _get_threshold(self, threshold_name: str, default: int) -> int:
+        """从规则配置获取阈值"""
+        rules = get_patrol_rules()
+        rule = rules.get_rule(self.name)
+        if rule and threshold_name in rule.thresholds:
+            return rule.thresholds[threshold_name]
+        return default
 
     async def execute(self) -> CheckResult:
         """执行检查"""
@@ -116,13 +125,25 @@ class QueueUtilizationCheck(BaseCheck):
     description = "检查队列资源利用率"
     enabled = True
 
-    # 配置
+    # 默认阈值
     warning_threshold = 70  # 警告阈值
     critical_threshold = 90  # 严重阈值
+
+    def _get_threshold(self, threshold_name: str, default: int) -> int:
+        """从规则配置获取阈值"""
+        rules = get_patrol_rules()
+        rule = rules.get_rule(self.name)
+        if rule and threshold_name in rule.thresholds:
+            return rule.thresholds[threshold_name]
+        return default
 
     async def execute(self) -> CheckResult:
         """执行检查"""
         yunikorn = get_yunikorn_client()
+
+        # 从规则配置获取阈值
+        warning_threshold = self._get_threshold("warning_threshold", self.warning_threshold)
+        critical_threshold = self._get_threshold("critical_threshold", self.critical_threshold)
 
         # 获取队列列表
         queues = yunikorn.list_queues()
@@ -156,15 +177,15 @@ class QueueUtilizationCheck(BaseCheck):
                 "pending_apps": queue.get("pending_apps", 0),
             }
 
-            if utilization >= self.critical_threshold:
+            if utilization >= critical_threshold:
                 critical_queues.append(queue_info)
-            elif utilization >= self.warning_threshold:
+            elif utilization >= warning_threshold:
                 warning_queues.append(queue_info)
 
         # 判断状态
         if critical_queues:
             return self._critical(
-                message=f"发现 {len(critical_queues)} 个队列利用率超过 {self.critical_threshold}%",
+                message=f"发现 {len(critical_queues)} 个队列利用率超过 {critical_threshold}%",
                 details={
                     "critical_queues": critical_queues,
                     "warning_queues": warning_queues,
@@ -178,7 +199,7 @@ class QueueUtilizationCheck(BaseCheck):
 
         if warning_queues:
             return self._warning(
-                message=f"发现 {len(warning_queues)} 个队列利用率超过 {self.warning_threshold}%",
+                message=f"发现 {len(warning_queues)} 个队列利用率超过 {warning_threshold}%",
                 details={
                     "warning_queues": warning_queues,
                 },
