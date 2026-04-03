@@ -17,8 +17,8 @@ Phase 2 Week 7: Patrol Engine
 
 ### Phase 3: History Server Integration (Week 8)
 - [x] Spark History Server client
-- [ ] Log parser implementation
-- [ ] Event correlation engine
+- [x] Log parser implementation
+- [x] Event correlation engine
 
 ### Phase 4: Monitoring & Alerting (Week 9)
 - [ ] Prometheus metrics exporter
