@@ -13,7 +13,7 @@ Phase 2 Week 7: Patrol Engine
 - [x] Patrol checks implementation  
 - [x] Patrol rules configuration
 - [x] Patrol integration tests
-- [ ] Patrol API endpoints
+- [x] Patrol API endpoints
 
 ### Phase 3: History Server Integration (Week 8)
 - [ ] Spark History Server client
