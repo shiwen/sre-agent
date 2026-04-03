@@ -93,14 +93,7 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-    "kubernetes.*",
-    "langchain.*",
-    "langgraph.*",
-]
-ignore_missing_imports = true
+# 注意: 由于全局已设置 ignore_missing_imports=true，无需单独为 kubernetes/langchain 等库设置 overrides
 
 # FastAPI 和 pytest 装饰器类型支持
 [[tool.mypy.overrides]]

@@ -40,8 +40,12 @@
 
 ### 下一步
 - Day 4: 编写 README 和开发指南（已提前完成）
-- Day 5: 配置 pre-commit hooks（已提前完成）
+- Day 5: 配置 pre-commit hooks（已完成，刚安装到 Git hooks）
 - Day 6: Week 1 验收 - 验证所有工具链可工作
+
+### 遗留问题
+- 虚拟环境需要重新创建（需要 python3.12-venv 包）
+- 当前使用系统级安装的开发工具 (--break-system-packages)
 
 ---
 
@@ -54,12 +58,13 @@
 | 配置代码规范 | ✅ | ruff + mypy |
 | 创建目录结构 | ✅ | 按架构设计 |
 | 编写 README | ✅ | 开发指南 |
-| 配置 pre-commit | ✅ | hooks 配置 |
+| 配置 pre-commit | ✅ | hooks 已安装到 .git/hooks/pre-commit |
 
 ### Week 1 验收项
 - [x] 代码仓库可克隆
 - [x] 代码规范检查通过 (ruff + mypy)
-- [ ] 开发环境可启动 (需要虚拟环境)
-- [ ] pre-commit hooks 可运行
+- [x] pre-commit hooks 已安装
+- [ ] 开发环境可启动 (需要 python3.12-venv 包)
+- [ ] 单元测试可运行 (需添加测试用例)
 
 ---
