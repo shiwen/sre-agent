@@ -1,9 +1,14 @@
 """结构化日志配置"""
 
+from __future__ import annotations
+
 import sys
+from typing import TYPE_CHECKING
 
 import structlog
-from structlog.typing import Processor
+
+if TYPE_CHECKING:
+    from structlog.typing import Processor
 
 
 def setup_logging() -> None:
@@ -28,7 +33,8 @@ def setup_logging() -> None:
 
     # 配置 structlog
     structlog.configure(
-        processors=shared_processors + [
+        processors=[
+            *shared_processors,
             structlog.processors.ExceptionRenderer(),
             renderer,
         ],

@@ -1,6 +1,10 @@
 """SRE Agent - FastAPI 应用入口"""
 
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +18,7 @@ logger = get_logger()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """应用生命周期管理"""
     # 启动
     setup_logging()
@@ -53,6 +57,6 @@ app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """健康检查端点"""
     return {"status": "healthy", "version": settings.APP_VERSION}

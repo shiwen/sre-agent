@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import chat, spark, queue, patrol
+from app.api.v1 import chat, patrol, queue, spark
 
 api_router = APIRouter()
 
