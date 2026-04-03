@@ -2,16 +2,19 @@
 
 ## 2026-04-03
 
-### Phase 1 Week 5 - 完成 ✅
+### Phase 1 Week 5-6 - 完成 ✅
 
 #### 最新提交
+- `eacfdb1`: feat: implement real K8s and YuniKorn clients
+- `5633edc`: docs: update dev-log with Phase 1 Week 5 progress
 - `afca575`: feat: add K8s ConfigMap session persistence
 - `73c8f57`: feat: add SSE streaming and session management
-- `dbeb998`: chore: add pydantic-settings dependency and update dev-log
-- `b82e6b8`: fix: resolve integration test failures
-- `e357fbb`: fix: resolve test failures and asyncio bug
-- `f0e9763`: feat: add Web Portal with React + Vite + Tailwind
 - `f44eab5`: feat: Complete Phase 1 implementation
+
+#### 基础设施客户端 ✅
+- K8sClient: Spark Application CRD, Pod, Node 操作
+- YuniKornClient: REST API 封装，队列和应用查询
+- 优雅降级: K8s/YuniKorn 不可用时自动使用 Mock 数据
 
 #### SSE 流式响应 ✅
 - 后端: `/chat/stream` SSE 端点
@@ -21,13 +24,13 @@
 #### 会话管理 ✅
 - 后端: 会话列表/详情/删除 API
 - 前端: SessionSidebar 组件
-- 会话持久化（内存存储，支持 K8s ConfigMap）
+- K8s ConfigMap 持久化（可选）
 
-#### Web Portal 完善 ✅
-- 响应式布局（移动端适配）
+#### Web Portal ✅
+- React + Vite + TypeScript
+- Tailwind CSS
+- 响应式布局
 - 会话侧边栏
-- 键盘快捷键（Shift+Enter 换行）
-- 加载状态动画
 - Markdown 渲染
 
 #### 测试 ✅
