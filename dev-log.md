@@ -2,14 +2,28 @@
 
 ## 2026-04-03
 
-### Phase 1 Week 5-6 - 完成 ✅
+### Phase 2 Week 7 - 进行中 🚧
 
 #### 最新提交
+- `9b1c6eb`: feat: implement patrol engine with scheduler
+- `a842a86`: docs: update dev-log with Phase 1 Week 5-6 progress
 - `eacfdb1`: feat: implement real K8s and YuniKorn clients
-- `5633edc`: docs: update dev-log with Phase 1 Week 5 progress
-- `afca575`: feat: add K8s ConfigMap session persistence
 - `73c8f57`: feat: add SSE streaming and session management
 - `f44eab5`: feat: Complete Phase 1 implementation
+
+#### 巡检引擎 ✅
+- PatrolEngine: 并行检查执行
+- BaseCheck: 自定义检查基类
+- PatrolReport: 检查结果报告模型
+- PatrolScheduler: APScheduler 定时调度
+
+#### 内置检查项 ✅
+- SparkFailureCheck: 检测失败的 Spark 任务
+- QueueUtilizationCheck: 监控 YuniKorn 队列利用率
+- NodeHealthCheck: 检查 K8s 节点健康状态
+- PodRestartCheck: 检测频繁重启的 Pod
+
+### Phase 1 Week 5-6 - 完成 ✅
 
 #### 基础设施客户端 ✅
 - K8sClient: Spark Application CRD, Pod, Node 操作
@@ -19,7 +33,6 @@
 #### SSE 流式响应 ✅
 - 后端: `/chat/stream` SSE 端点
 - 前端: `sendMessageStream` 支持 SSE
-- 分块发送响应，实时显示
 
 #### 会话管理 ✅
 - 后端: 会话列表/详情/删除 API
@@ -30,8 +43,6 @@
 - React + Vite + TypeScript
 - Tailwind CSS
 - 响应式布局
-- 会话侧边栏
-- Markdown 渲染
 
 #### 测试 ✅
 - 单元测试: 84 passed
