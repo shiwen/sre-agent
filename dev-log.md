@@ -2,29 +2,42 @@
 
 ## 2026-04-03
 
-### Phase 0 Week 2 - 完成
+### Phase 1 Week 4-5 - 完成 ✅
 
-#### 虚拟环境
-- 使用 `virtualenv` 创建隔离的 Python 虚拟环境（`python3-venv` 不可用）
-- 虚拟环境位于 `.venv`，与全局环境完全隔离
-- 所有依赖安装在 `.venv/lib/python3.12/site-packages/`
+#### 提交记录
+- `f44eab5`: feat: Complete Phase 1 implementation (41 files, 5887 lines)
+- `f0e9763`: feat: add Web Portal with React + Vite + Tailwind (34 files, 6618 lines)
+- `e6ed51c`: fix: resolve TypeScript errors in Web Portal
+- `e357fbb`: fix: resolve test failures and asyncio bug
+- `b82e6b8`: fix: resolve integration test failures
 
-#### 核心依赖安装
-- fastapi, uvicorn - API 服务
-- langchain-core, langchain-openai, langgraph - LLM 框架
-- pydantic, structlog, tenacity - 基础库
-- pytest, pytest-asyncio, pytest-cov - 测试框架
-- ruff, mypy - 代码规范
+#### 基础设施完善 ✅
+- Dockerfile: 多阶段构建，添加 curl 健康检查
+- CI/CD: Docker 推送到 ghcr.io，Helm Chart 发布
+- Helm Chart: Ingress, ConfigMap, PatrolJob (CronJob)
+- RBAC: Spark Operator CRD 权限，Pod/ConfigMap 权限
 
-#### 代码规范
-- Ruff 检查通过
-- 配置了中文文本全角字符忽略规则
+#### Web Portal ✅
+- React + Vite + TypeScript
+- Tailwind CSS
+- 聊天界面（MessageList, MessageInput, Chat）
+- API 服务层（client.ts）
+- 类型定义（Message, ChatRequest, ChatResponse, SparkApp, YunikornQueue）
+- 构建成功，无 TypeScript 错误
 
-#### 单元测试
-- 23 个测试全部通过
-- 覆盖率 42%（目标 70%）
+#### 测试 ✅
+- 单元测试: 84 passed
+- 集成测试: 16 passed
+- 总计: 100 passed
+- 修复了 asyncio.run 调用同步方法的 bug
+- 修复了测试与实际实现不匹配的问题
 
-### Phase 1 Week 3 - 部分完成
+#### 依赖补充 ✅
+- prometheus-client: 指标采集
+- pydantic-settings: 配置管理
+- react-markdown, remark-gfm, zustand: Web Portal
+
+### Phase 1 Week 3 - 完成 ✅
 
 #### LLM Registry ✅
 - 多供应商支持（Primary + Fallback）
@@ -40,7 +53,6 @@
 #### Session Manager ✅
 - 会话创建、获取、删除
 - 消息历史管理
-- 滚动摘要（Token 控制）
 
 #### Spark 工具 ✅
 - spark_list - 查询应用列表
@@ -50,7 +62,7 @@
 
 #### YuniKorn 工具 ✅
 - yunikorn_queue_list - 队列列表
-- yunikorn_queue_get - 队列详情
+- yunikorn_queue_get - 队列详情（返回 data 字段）
 - yunikorn_applications - 队列应用
 
 #### K8s 工具 ✅
@@ -58,7 +70,7 @@
 - k8s_node_list, k8s_node_get
 - k8s_pod_delete（高风险，需审批）
 
-### Phase 0 基础设施
+### Phase 0 基础设施 ✅
 
 #### Dockerfile ✅
 - 多阶段构建
@@ -68,19 +80,36 @@
 #### Helm Chart ✅
 - Deployment, Service, RBAC
 - ServiceAccount
+- ConfigMap, Ingress, PatrolJob (CronJob)
 - 可配置资源限制
 
 #### GitHub Actions CI/CD ✅
 - lint（Ruff + MyPy）
 - test（pytest + coverage）
-- build（Docker 镜像）
-- helm-lint
+- build（Docker 镜像推送到 ghcr.io）
+- helm-lint, helm-release
+
+### 当前状态
+
+#### 代码统计
+- Python: 5364 行
+- TypeScript: 2000+ 行
+- 测试: 100 个全部通过
+
+#### 已完成功能
+- Agent 核心（LLM Registry, LangGraph 状态图）
+- Tools（Spark, YuniKorn, K8s）
+- FastAPI 入口和 API 端点
+- 单元测试 + 集成测试
+- Dockerfile + CI/CD
+- Helm Chart（完整）
+- Web Portal（基础聊天界面）
 
 ### 待完成
 
-1. **集成测试** - 需要 K8s 环境或 Mock
-2. **API 路由完善** - chat, spark, queue, patrol
-3. **实际 K8s/YuniKorn 客户端** - 替换 Mock 数据
+1. **实际 K8s/YuniKorn 客户端** - 替换 Mock 数据
+2. **Web Portal 完善** - Dashboard, Patrol Panel, Sidebar
+3. **流式响应** - SSE WebSocket
 4. **错误处理增强** - 更完善的异常处理
 5. **配置管理** - ConfigMap/Secret 读取
 
@@ -88,7 +117,7 @@
 
 1. ToolRegistry 类变量警告（RUF012）- 已忽略，功能正常
 2. 部分工具参数未使用 - 已忽略，保留接口扩展性
-3. 覆盖率不足 - 需要更多测试用例
+3. API 路由冲突：/queues/health 被 /queues/{queue_name} 匹配
 
 ---
 
@@ -107,11 +136,23 @@ pip install -e ".[dev]"
 
 禁止使用 `--break-system-packages` 污染全局环境。
 
+### 提交规范
+
+每完成一个功能点立即提交：
+
+```
+<type>: <description>
+
+例如：
+feat: add Spark tools implementation
+fix: resolve test failures
+chore: update dependencies
+```
+
 ---
 
 ## 下一步
 
-1. 完善 API 路由和错误处理
-2. 实现实际 K8s/YuniKorn 客户端
-3. 添加集成测试
-4. 部署到测试环境验证
+1. 实现实际 K8s/YuniKorn 客户端
+2. 完善 Web Portal（Dashboard, Patrol Panel）
+3. 部署到测试环境验证
