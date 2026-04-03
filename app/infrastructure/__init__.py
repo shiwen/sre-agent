@@ -20,6 +20,17 @@ from app.infrastructure.metrics_exporter import (
     MetricsCollector,
     MetricsRegistry,
 )
+from app.infrastructure.notification import (
+    NotificationChannelConfig,
+    NotificationChannelType,
+    NotificationManager,
+    NotificationMessage,
+    NotificationPriority,
+    NotificationResult,
+    NotificationRouter,
+    get_notification_manager,
+    get_notification_router,
+)
 from app.infrastructure.yunikorn_client import get_yunikorn_client
 
 __all__ = [
@@ -37,8 +48,17 @@ __all__ = [
     "get_log_parser",
     "get_metrics_collector",
     "get_metrics_registry",
+    "get_notification_manager",
+    "get_notification_router",
     "get_yunikorn_client",
     "MetricsCollector",
     "MetricsRegistry",
+    "NotificationChannelConfig",
+    "NotificationChannelType",
+    "NotificationManager",
+    "NotificationMessage",
+    "NotificationPriority",
+    "NotificationResult",
+    "NotificationRouter",
     "SparkLogParser",
 ]
