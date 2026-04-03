@@ -9,8 +9,8 @@ from app.agent.tools.base import (
     BaseTool,
     RiskLevel,
     ToolCategory,
-    _mock_spark_applications,
 )
+from app.infrastructure.k8s_client import get_k8s_client
 
 logger = get_logger()
 
@@ -122,22 +122,17 @@ class SparkListTool(BaseTool):
             limit=limit,
         )
 
-        # Mock 数据（实际应调用 K8s API）
-        applications = _mock_spark_applications()
+        # 使用 K8s 客户端查询 Spark Application CRD
+        k8s = get_k8s_client()
+        applications = k8s.list_spark_applications(namespace)
 
-        # 过滤
-        if namespace:
-            applications = [
-                a for a in applications
-                if a["namespace"] == namespace
-            ]
-
+        # 过滤状态
         if status:
             if isinstance(status, str):
                 status = [status]
             applications = [
                 a for a in applications
-                if a["status"] in status
+                if a.get("status") in status or a.get("status") in [s.upper() for s in status]
             ]
 
         # 截断
@@ -172,15 +167,9 @@ class SparkGetTool(BaseTool):
         if not app_name:
             return {"error": "缺少 app_name 参数"}
 
-        # Mock 数据
-        applications = _mock_spark_applications()
-
-        # 查找应用
-        app = None
-        for a in applications:
-            if a["name"] == app_name and a["namespace"] == namespace:
-                app = a
-                break
+        # 使用 K8s 客户端查询
+        k8s = get_k8s_client()
+        app = k8s.get_spark_application(app_name, namespace)
 
         if not app:
             return {"error": f"应用不存在: {app_name} (namespace: {namespace})"}
@@ -194,18 +183,6 @@ class SparkGetTool(BaseTool):
                 "executor_cores": 4,
                 "executor_memory": "8g",
                 "executor_instances": 3,
-                "main_class": "com.example.SparkJob",
-                "main_application_file": "local:///opt/spark/jars/job.jar",
-            },
-            "status_detail": {
-                "application_state": app["status"],
-                "driver_pod_name": app["driver_pod"],
-                "executor_pods": [
-                    f"{app_name}-executor-1",
-                    f"{app_name}-executor-2",
-                    f"{app_name}-executor-3",
-                ] if app["status"] == "RUNNING" else [],
-                "last_error": app.get("error_message"),
             },
         }
 
@@ -240,61 +217,23 @@ class SparkLogsTool(BaseTool):
         if not app_name:
             return {"error": "缺少 app_name 参数"}
 
-        # Mock 日志数据
-        mock_logs = self._generate_mock_logs(app_name, pod_type)
+        # 构造 Pod 名称
+        if pod_type == "driver":
+            pod_name = f"{app_name}-driver"
+        else:
+            pod_name = f"{app_name}-executor-1"
+
+        # 使用 K8s 客户端获取日志
+        k8s = get_k8s_client()
+        logs = k8s.get_pod_logs(pod_name, namespace, tail_lines=tail_lines)
 
         return {
-            "logs": mock_logs[:tail_lines],
-            "pod_name": f"{app_name}-{pod_type}",
+            "logs": logs,
+            "pod_name": pod_name,
             "pod_type": pod_type,
             "namespace": namespace,
             "tail_lines": tail_lines,
         }
-
-    def _generate_mock_logs(self, app_name: str, pod_type: str) -> str:
-        """生成 Mock 日志"""
-        # 根据应用状态生成不同日志
-        applications = _mock_spark_applications()
-        app = None
-        for a in applications:
-            if a["name"] == app_name:
-                app = a
-                break
-
-        if app and app["status"] == "FAILED":
-            # 生成失败日志
-            if "OOM" in app.get("error_message", ""):
-                return """
-2026-04-03 09:10:00 INFO  SparkContext: Starting Spark application
-2026-04-03 09:10:05 INFO  Driver: Initializing executor backend
-2026-04-03 09:10:10 INFO  Executor: Starting executor 1
-2026-04-03 09:10:15 INFO  Executor: Starting executor 2
-2026-04-03 09:12:00 INFO  TaskSetManager: Starting task 1.0
-2026-04-03 09:12:30 WARN  MemoryStore: Not enough memory to build hash map
-2026-04-03 09:13:00 ERROR Executor: java.lang.OutOfMemoryError: Java heap space
-2026-04-03 09:13:05 ERROR Executor: ExecutorLostFailure (executor 2 lost)
-2026-04-03 09:13:10 ERROR DAGScheduler: Job aborted due to stage failure
-2026-04-03 09:15:00 INFO  SparkContext: Application finished with status FAILED
-"""
-            else:
-                return """
-2026-04-03 09:10:00 INFO  SparkContext: Starting Spark application
-2026-04-03 09:15:00 ERROR Container: Container killed by YARN for exceeding memory
-2026-04-03 09:15:05 INFO  SparkContext: Application finished with status FAILED
-"""
-
-        # 正常运行日志
-        return """
-2026-04-03 10:00:00 INFO  SparkContext: Starting Spark application
-2026-04-03 10:00:05 INFO  Driver: Application ID: app-20260403100005-0001
-2026-04-03 10:00:10 INFO  Executor: Starting executor 1 on node-01
-2026-04-03 10:00:15 INFO  Executor: Starting executor 2 on node-02
-2026-04-03 10:00:20 INFO  DAGScheduler: Submitting ResultStage 0
-2026-04-03 10:05:00 INFO  TaskSetManager: Starting task 0.0 in partition 0
-2026-04-03 10:10:00 INFO  TaskSetManager: Finished task 0.0
-2026-04-03 10:15:00 INFO  DAGScheduler: ResultStage 0 finished
-2026-04-03 10:30:00 INFO  SparkContext: Application finished with status SUCCEEDED
-"""
 
 
 class SparkAnalyzeTool(BaseTool):
@@ -317,7 +256,7 @@ class SparkAnalyzeTool(BaseTool):
             # 分析批量失败
             return self._analyze_failures(recent_failures)
 
-        if not logs:
+        if not logs and app_name:
             # 如果没有日志，先获取
             logs_tool = SparkLogsTool()
             result = logs_tool.execute({"app_name": app_name, "pod_type": "driver"})
@@ -351,7 +290,7 @@ class SparkAnalyzeTool(BaseTool):
                 matches = re.findall(pattern, logs, re.IGNORECASE)
                 if matches:
                     # 提取上下文
-                    context = self._extract_context(logs, matches[0])
+                    context = self._extract_context(logs, str(matches[0]))
 
                     issues.append({
                         "severity": pattern_def["severity"],

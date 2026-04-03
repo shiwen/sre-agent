@@ -10,6 +10,7 @@ from app.agent.tools.base import (
     RiskLevel,
     ToolCategory,
 )
+from app.infrastructure.yunikorn_client import get_yunikorn_client
 
 logger = get_logger()
 
@@ -46,87 +47,15 @@ class YuniKornQueueListTool(BaseTool):
         """执行查询"""
         kwargs = YuniKornQueueListArgs(**args).model_dump()
 
-        # TODO: 实际实现需要 YuniKorn REST API client
-        mock_queues = [
-            {
-                "name": "root",
-                "partition": kwargs["partition"],
-                "status": "active",
-                "children": ["root.prod", "root.dev", "root.default"],
-                "max_capacity": {
-                    "memory": "100Gi",
-                    "vcore": 100,
-                },
-                "used_capacity": {
-                    "memory": "45Gi",
-                    "vcore": 45,
-                },
-                "utilization": "45%",
-                "pending_apps": 3,
-                "running_apps": 5,
-            },
-            {
-                "name": "root.prod",
-                "partition": kwargs["partition"],
-                "status": "active",
-                "parent": "root",
-                "max_capacity": {
-                    "memory": "60Gi",
-                    "vcore": 60,
-                },
-                "used_capacity": {
-                    "memory": "35Gi",
-                    "vcore": 35,
-                },
-                "utilization": "58%",
-                "pending_apps": 1,
-                "running_apps": 3,
-                "properties": {
-                    "guaranteed.memory": "40Gi",
-                    "guaranteed.vcore": 40,
-                },
-            },
-            {
-                "name": "root.dev",
-                "partition": kwargs["partition"],
-                "status": "active",
-                "parent": "root",
-                "max_capacity": {
-                    "memory": "30Gi",
-                    "vcore": 30,
-                },
-                "used_capacity": {
-                    "memory": "10Gi",
-                    "vcore": 10,
-                },
-                "utilization": "33%",
-                "pending_apps": 2,
-                "running_apps": 2,
-            },
-            {
-                "name": "root.default",
-                "partition": kwargs["partition"],
-                "status": "active",
-                "parent": "root",
-                "max_capacity": {
-                    "memory": "10Gi",
-                    "vcore": 10,
-                },
-                "used_capacity": {
-                    "memory": "0Gi",
-                    "vcore": 0,
-                },
-                "utilization": "0%",
-                "pending_apps": 0,
-                "running_apps": 0,
-            },
-        ]
+        # 使用 YuniKorn 客户端查询
+        client = get_yunikorn_client()
+        queues = client.list_queues(kwargs["partition"])
 
         return {
             "success": True,
-            "queues": mock_queues,
+            "queues": queues,
             "partition": kwargs["partition"],
-            "total_queues": len(mock_queues),
+            "total_queues": len(queues),
         }
 
 
@@ -143,47 +72,52 @@ class YuniKornQueueGetTool(BaseTool):
         """执行查询"""
         kwargs = YuniKornQueueGetArgs(**args).model_dump()
 
-        # TODO: 实际实现需要 YuniKorn REST API
-        mock_queue = {
-            "name": kwargs["queue_name"],
-            "partition": kwargs["partition"],
-            "status": "active",
-            "config": {
-                "guaranteed_resources": {
-                    "memory": "40Gi",
-                    "vcore": 40,
-                },
-                "max_resources": {
-                    "memory": "60Gi",
-                    "vcore": 60,
-                },
-                "max_running_apps": 10,
-                "scheduling_policy": "fair",
-            },
-            "current_usage": {
-                "memory": "35Gi",
-                "vcore": 35,
-                "memory_percent": 58.3,
-                "vcore_percent": 58.3,
-            },
-            "applications": {
-                "pending": 1,
-                "running": 3,
-                "completed_today": 15,
-                "failed_today": 2,
-            },
-            "health": {
-                "status": "healthy",
-                "warnings": [
-                    "队列使用率接近上限,建议关注",
-                ] if 58 > 50 else [],
-            },
-        }
+        # 使用 YuniKorn 客户端查询
+        client = get_yunikorn_client()
+        queue = client.get_queue(kwargs["queue_name"], kwargs["partition"])
+
+        if not queue:
+            return {
+                "success": False,
+                "error": f"队列不存在: {kwargs['queue_name']}",
+            }
+
+        # 添加分析
+        analysis = self._analyze_queue(queue)
 
         return {
             "success": True,
-            "data": mock_queue,
+            "data": {
+                **queue,
+                "analysis": analysis,
+            },
         }
+
+    def _analyze_queue(self, queue: dict[str, Any]) -> dict[str, Any]:
+        """分析队列状态"""
+        apps = queue.get("applications", {})
+        running = apps.get("running", 0)
+        pending = apps.get("pending", 0)
+
+        # 计算利用率
+        used = queue.get("current_usage", {}).get("allocated", {})
+        max_cap = queue.get("config", {}).get("max_resources", {})
+
+        analysis = {
+            "status": "healthy",
+            "message": "队列运行正常",
+            "warnings": [],
+        }
+
+        # 检查资源压力
+        if pending > 5:
+            analysis["status"] = "warning"
+            analysis["warnings"].append(f"有 {pending} 个应用等待调度")
+
+        if running > 20:
+            analysis["warnings"].append(f"运行应用数较多 ({running})")
+
+        return analysis
 
 
 class YuniKornApplicationsTool(BaseTool):
@@ -199,58 +133,21 @@ class YuniKornApplicationsTool(BaseTool):
         """执行查询"""
         kwargs = YuniKornApplicationsArgs(**args).model_dump()
 
-        # TODO: 实际实现需要 YuniKorn REST API
-        mock_apps = [
-            {
-                "application_id": "app-spark-etl-001",
-                "queue": kwargs["queue_name"],
-                "state": "Running",
-                "submission_time": "2026-04-03T08:00:00Z",
-                "allocated_resources": {
-                    "memory": "8Gi",
-                    "vcore": 4,
-                },
-                "requested_resources": {
-                    "memory": "12Gi",
-                    "vcore": 6,
-                },
-                "pending_requests": 2,
-                "max_used_resources": {
-                    "memory": "10Gi",
-                    "vcore": 5,
-                },
-            },
-            {
-                "application_id": "app-spark-analytics-002",
-                "queue": kwargs["queue_name"],
-                "state": "Failed",
-                "submission_time": "2026-04-03T09:00:00Z",
-                "terminated_time": "2026-04-03T09:15:00Z",
-                "allocated_resources": {},
-                "error_message": "Application failed: OOM",
-            },
-            {
-                "application_id": "app-spark-streaming-003",
-                "queue": kwargs["queue_name"],
-                "state": "Pending",
-                "submission_time": "2026-04-03T10:00:00Z",
-                "requested_resources": {
-                    "memory": "16Gi",
-                    "vcore": 8,
-                },
-                "pending_requests": 5,
-                "wait_time_seconds": 300,
-            },
-        ]
+        # 使用 YuniKorn 客户端查询
+        client = get_yunikorn_client()
+        applications = client.list_applications(
+            kwargs["queue_name"],
+            kwargs["partition"],
+            kwargs.get("state"),
+        )
 
-        # 状态筛选
-        state = kwargs.get("state")
-        filtered = [a for a in mock_apps if a["state"] == state] if state else mock_apps
+        # 截断
+        applications = applications[:kwargs["limit"]]
 
         return {
             "success": True,
-            "applications": filtered[:kwargs["limit"]],
+            "applications": applications,
             "queue": kwargs["queue_name"],
             "partition": kwargs["partition"],
-            "total": len(filtered),
+            "total": len(applications),
         }

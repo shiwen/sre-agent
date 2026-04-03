@@ -2,17 +2,55 @@
 
 from typing import Any
 
+from pydantic import BaseModel
 from structlog import get_logger
 
 from app.agent.tools.base import (
     BaseTool,
     RiskLevel,
     ToolCategory,
-    _mock_k8s_nodes,
-    _mock_k8s_pods,
 )
+from app.infrastructure.k8s_client import get_k8s_client
 
 logger = get_logger()
+
+
+class K8sPodListArgs(BaseModel):
+    """Pod 列表参数"""
+    namespace: str | None = None
+    label_selector: str | None = None
+    status: str | None = None
+
+
+class K8sPodGetArgs(BaseModel):
+    """Pod 详情参数"""
+    name: str
+    namespace: str = "default"
+
+
+class K8sPodLogsArgs(BaseModel):
+    """Pod 日志参数"""
+    name: str
+    namespace: str = "default"
+    container: str | None = None
+    tail_lines: int = 500
+
+
+class K8sPodDeleteArgs(BaseModel):
+    """Pod 删除参数"""
+    name: str
+    namespace: str = "default"
+
+
+class K8sNodeListArgs(BaseModel):
+    """Node 列表参数"""
+    label_selector: str | None = None
+    status: str | None = None
+
+
+class K8sNodeGetArgs(BaseModel):
+    """Node 详情参数"""
+    name: str
 
 
 class K8sPodListTool(BaseTool):
@@ -22,42 +60,30 @@ class K8sPodListTool(BaseTool):
     description = "查询 Kubernetes Pod 列表"
     category = ToolCategory.K8S
     risk_level = RiskLevel.SAFE
+    args_schema = K8sPodListArgs
 
     def execute(self, args: dict[str, Any]) -> dict[str, Any]:
         """执行查询"""
-        namespace = args.get("namespace")
-        status = args.get("status")  # Running / Succeeded / Failed / Pending
-        label_selector = args.get("label_selector")
-        limit = args.get("limit", 100)
+        kwargs = K8sPodListArgs(**args).model_dump()
 
-        logger.info(
-            "k8s_pod_list",
-            namespace=namespace,
-            status=status,
-            label_selector=label_selector,
+        k8s = get_k8s_client()
+
+        # 构造 field_selector
+        field_selector = None
+        if kwargs.get("status"):
+            field_selector = f"status.phase={kwargs['status']}"
+
+        pods = k8s.list_pods(
+            namespace=kwargs.get("namespace"),
+            label_selector=kwargs.get("label_selector"),
+            field_selector=field_selector,
         )
 
-        # Mock 数据
-        pods = _mock_k8s_pods()
-
-        # 过滤
-        if namespace:
-            pods = [p for p in pods if p["namespace"] == namespace]
-
-        if status:
-            pods = [p for p in pods if p["status"] == status]
-
-        # 截断
-        pods = pods[:limit]
-
         return {
+            "success": True,
             "pods": pods,
             "total": len(pods),
-            "query": {
-                "namespace": namespace,
-                "status": status,
-                "label_selector": label_selector,
-            },
+            "query": kwargs,
         }
 
 
@@ -68,96 +94,82 @@ class K8sPodGetTool(BaseTool):
     description = "获取单个 Pod 的详细信息"
     category = ToolCategory.K8S
     risk_level = RiskLevel.SAFE
+    args_schema = K8sPodGetArgs
 
     def execute(self, args: dict[str, Any]) -> dict[str, Any]:
         """执行查询"""
-        pod_name = args.get("pod_name", "")
-        namespace = args.get("namespace", "default")
+        kwargs = K8sPodGetArgs(**args).model_dump()
 
-        logger.info("k8s_pod_get", pod_name=pod_name, namespace=namespace)
-
-        if not pod_name:
-            return {"error": "缺少 pod_name 参数"}
-
-        # Mock 数据
-        pods = _mock_k8s_pods()
-
-        # 查找 Pod
-        pod = None
-        for p in pods:
-            if p["name"] == pod_name and p["namespace"] == namespace:
-                pod = p
-                break
+        k8s = get_k8s_client()
+        pod = k8s.get_pod(kwargs["name"], kwargs["namespace"])
 
         if not pod:
-            return {"error": f"Pod 不存在: {pod_name} (namespace: {namespace})"}
-
-        # 添加详细信息
-        pod_detail = {
-            **pod,
-            "spec": {
-                "containers": [
-                    {
-                        "name": c,
-                        "image": "spark-image:v3.1.1",
-                        "resources": {
-                            "requests": {"cpu": "1", "memory": "4Gi"},
-                            "limits": {"cpu": "2", "memory": "8Gi"},
-                        },
-                    }
-                    for c in pod["containers"]
-                ],
-                "node_name": pod["node"],
-                "restart_policy": "Never",
-            },
-            "events": [
-                {
-                    "type": "Normal" if pod["status"] != "Failed" else "Warning",
-                    "reason": "Started" if pod["status"] == "Running" else pod.get("error_reason", "Completed"),
-                    "message": f"Container {pod['containers'][0]} started",
-                    "timestamp": "2026-04-03T10:00:00Z",
-                },
-            ],
-        }
+            return {
+                "success": False,
+                "error": f"Pod 不存在: {kwargs['name']}",
+            }
 
         return {
-            "pod": pod_detail,
-            "pod_name": pod_name,
+            "success": True,
+            "pod": pod,
+        }
+
+
+class K8sPodLogsTool(BaseTool):
+    """K8s Pod 日志获取"""
+
+    name = "k8s_pod_logs"
+    description = "获取 Pod 日志"
+    category = ToolCategory.K8S
+    risk_level = RiskLevel.SAFE
+    args_schema = K8sPodLogsArgs
+
+    def execute(self, args: dict[str, Any]) -> dict[str, Any]:
+        """执行查询"""
+        kwargs = K8sPodLogsArgs(**args).model_dump()
+
+        k8s = get_k8s_client()
+        logs = k8s.get_pod_logs(
+            kwargs["name"],
+            kwargs["namespace"],
+            kwargs.get("container"),
+            kwargs["tail_lines"],
+        )
+
+        return {
+            "success": True,
+            "logs": logs,
+            "pod_name": kwargs["name"],
+            "namespace": kwargs["namespace"],
         }
 
 
 class K8sPodDeleteTool(BaseTool):
-    """K8s Pod 删除"""
+    """K8s Pod 删除（高风险）"""
 
     name = "k8s_pod_delete"
-    description = "删除指定的 Pod（高风险操作）"
+    description = "删除 Pod（高风险操作，需要审批）"
     category = ToolCategory.K8S
     risk_level = RiskLevel.HIGH
+    args_schema = K8sPodDeleteArgs
 
     def execute(self, args: dict[str, Any]) -> dict[str, Any]:
         """执行删除"""
-        pod_name = args.get("pod_name", "")
-        namespace = args.get("namespace", "default")
-        force = args.get("force", False)
+        kwargs = K8sPodDeleteArgs(**args).model_dump()
 
         logger.warning(
-            "k8s_pod_delete_request",
-            pod_name=pod_name,
-            namespace=namespace,
-            force=force,
+            "pod_delete_requested",
+            name=kwargs["name"],
+            namespace=kwargs["namespace"],
         )
 
-        if not pod_name:
-            return {"error": "缺少 pod_name 参数"}
+        k8s = get_k8s_client()
+        success = k8s.delete_pod(kwargs["name"], kwargs["namespace"])
 
-        # Mock 删除操作
-        # 实际实现应调用 K8s API
         return {
-            "deleted": True,
-            "pod_name": pod_name,
-            "namespace": namespace,
-            "message": f"Pod {pod_name} 已删除",
-            "warning": "这是一个高风险操作，已记录日志",
+            "success": success,
+            "action": "delete",
+            "resource": f"Pod/{kwargs['namespace']}/{kwargs['name']}",
         }
 
 
@@ -168,24 +180,23 @@ class K8sNodeListTool(BaseTool):
     description = "查询 Kubernetes Node 列表"
     category = ToolCategory.K8S
     risk_level = RiskLevel.SAFE
+    args_schema = K8sNodeListArgs
 
     def execute(self, args: dict[str, Any]) -> dict[str, Any]:
         """执行查询"""
-        status = args.get("status")  # Ready / NotReady
+        kwargs = K8sNodeListArgs(**args).model_dump()
 
-        logger.info("k8s_node_list", status=status)
+        k8s = get_k8s_client()
+        nodes = k8s.list_nodes(kwargs.get("label_selector"))
 
-        # Mock 数据
-        nodes = _mock_k8s_nodes()
-
-        # 过滤
-        if status:
-            nodes = [n for n in nodes if n["status"] == status]
+        # 状态过滤
+        if kwargs.get("status"):
+            nodes = [n for n in nodes if n.get("status") == kwargs["status"]]
 
         return {
+            "success": True,
             "nodes": nodes,
             "total": len(nodes),
-            "query": {"status": status},
         }
 
 
@@ -196,94 +207,22 @@ class K8sNodeGetTool(BaseTool):
     description = "获取单个 Node 的详细信息"
     category = ToolCategory.K8S
     risk_level = RiskLevel.SAFE
+    args_schema = K8sNodeGetArgs
 
     def execute(self, args: dict[str, Any]) -> dict[str, Any]:
         """执行查询"""
-        node_name = args.get("node_name", "")
+        kwargs = K8sNodeGetArgs(**args).model_dump()
 
-        logger.info("k8s_node_get", node_name=node_name)
-
-        if not node_name:
-            return {"error": "缺少 node_name 参数"}
-
-        # Mock 数据
-        nodes = _mock_k8s_nodes()
-
-        # 查找 Node
-        node = None
-        for n in nodes:
-            if n["name"] == node_name:
-                node = n
-                break
+        k8s = get_k8s_client()
+        node = k8s.get_node(kwargs["name"])
 
         if not node:
-            return {"error": f"Node 不存在: {node_name}"}
-
-        # 添加详细信息
-        node_detail = {
-            **node,
-            "labels": {
-                "kubernetes.io/arch": "amd64",
-                "kubernetes.io/os": "linux",
-                "node-role.kubernetes.io/worker": "true",
-            },
-            "addresses": [
-                {"type": "InternalIP", "address": f"10.0.0.{node_name[-1]}"},
-                {"type": "Hostname", "address": node_name},
-            ],
-            "conditions": [
-                {
-                    "type": "Ready",
-                    "status": node["status"],
-                    "reason": node.get("error_reason", "NodeReady"),
-                    "message": f"Node {node_name} is {node['status']}",
-                },
-            ],
-        }
+            return {
+                "success": False,
+                "error": f"Node 不存在: {kwargs['name']}",
+            }
 
         return {
-            "node": node_detail,
-            "node_name": node_name,
-        }
-
-
-class K8sPodLogsTool(BaseTool):
-    """K8s Pod 日志查询"""
-
-    name = "k8s_pod_logs"
-    description = "获取 Pod 日志"
-    category = ToolCategory.K8S
-    risk_level = RiskLevel.SAFE
-
-    def execute(self, args: dict[str, Any]) -> dict[str, Any]:
-        """执行查询"""
-        pod_name = args.get("pod_name", "")
-        namespace = args.get("namespace", "default")
-        container = args.get("container")
-        tail_lines = args.get("tail_lines", 100)
-
-        logger.info(
-            "k8s_pod_logs",
-            pod_name=pod_name,
-            container=container,
-        )
-
-        if not pod_name:
-            return {"error": "缺少 pod_name 参数"}
-
-        # Mock 日志
-        logs = f"""
-[2026-04-03 10:00:00] INFO: Starting container {container or 'main'}
-[2026-04-03 10:00:05] INFO: Initialization complete
-[2026-04-03 10:00:10] INFO: Application started
-[2026-04-03 10:05:00] INFO: Processing task 1
-[2026-04-03 10:10:00] INFO: Processing task 2
-[2026-04-03 10:15:00] INFO: Task completed successfully
-"""
-
-        return {
-            "logs": logs[:tail_lines * 100],
-            "pod_name": pod_name,
-            "namespace": namespace,
-            "container": container,
+            "success": True,
+            "node": node,
         }
