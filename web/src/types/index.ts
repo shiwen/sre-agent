@@ -8,8 +8,19 @@ export interface Message {
 
 export interface Session {
   id: string;
+  user_id?: string;
   created_at: Date;
-  messages: Message[];
+  message_count?: number;
+  status?: string;
+}
+
+export interface SessionDetail {
+  id: string;
+  user_id?: string;
+  created_at: Date;
+  messages: Array<{ role: string; content: string }>;
+  summary?: string;
+  status?: string;
 }
 
 export interface ChatRequest {

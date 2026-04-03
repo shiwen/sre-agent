@@ -1,8 +1,10 @@
 """对话 API"""
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from structlog import get_logger
 
@@ -51,6 +53,56 @@ async def chat(request: ChatRequest) -> ChatResponse:
         session_id=result["session_id"],
         structured_data=result.get("structured_data"),
         needs_approval=result.get("needs_approval", False),
+    )
+
+
+@router.post("/stream")
+async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    """流式对话响应（SSE）"""
+    ensure_tools_registered()
+
+    async def generate() -> Any:
+        """生成 SSE 事件流"""
+        session_id = request.session_id or ""
+
+        # 发送开始事件
+        yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+
+        try:
+            # 运行 Agent
+            result = await run_agent(
+                user_query=request.message,
+                session_id=session_id,
+                user_id=request.user_id,
+            )
+
+            response_text = result["response"]
+
+            # 分块发送响应（模拟流式输出）
+            chunk_size = 50  # 每 50 字符一块
+            for i in range(0, len(response_text), chunk_size):
+                chunk = response_text[i:i + chunk_size]
+                yield f"event: chunk\ndata: {json.dumps({'text': chunk})}\n\n"
+
+            # 发送结构化数据
+            if result.get("structured_data"):
+                yield f"event: data\ndata: {json.dumps({'structured_data': result['structured_data']})}\n\n"
+
+            # 发送完成事件
+            yield f"event: done\ndata: {json.dumps({'session_id': result['session_id']})}\n\n"
+
+        except Exception as e:
+            logger.error("chat_stream_error", error=str(e))
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
