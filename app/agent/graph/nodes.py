@@ -324,7 +324,7 @@ def execute_tool_node(state: AgentState) -> Command:
 
     # 执行工具
     try:
-        result = asyncio.run(tool.execute(resolved_args))
+        result = tool.execute(resolved_args)
         logger.info("tool_executed", step_id=step_id, success=True)
 
         return Command(
