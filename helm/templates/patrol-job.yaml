@@ -1,0 +1,49 @@
+{{- if .Values.patrol.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-patrol
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: patrol
+spec:
+  schedule: "*/{{ .Values.patrol.intervalMinutes }} * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "sre-agent.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: patrol
+        spec:
+          serviceAccountName: {{ .Values.serviceAccount.name }}
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          containers:
+            - name: patrol
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - python
+                - -m
+                - app.agent.patrol
+              envFrom:
+                - configMapRef:
+                    name: {{ include "sre-agent.fullname" . }}-config
+                {{- if .Values.llm.existingSecret }}
+                - secretRef:
+                    name: {{ .Values.llm.existingSecret }}
+                {{- end }}
+              resources:
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+{{- end }}

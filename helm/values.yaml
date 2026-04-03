@@ -1,0 +1,99 @@
+# Default values for sre-agent
+# This is a YAML-formatted file.
+
+# 部署配置
+replicaCount: 1
+
+image:
+  repository: sre-agent
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+# 资源配置
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# 服务配置
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+# 环境变量
+env:
+  ENV: production
+  DEBUG: false
+  K8S_NAMESPACE: "{{ .Release.Namespace }}"
+  LOG_LEVEL: INFO
+
+# LLM 配置（通过 Secret）
+llm:
+  # 使用 existingSecret 或配置 inline
+  existingSecret: ""
+  # Secret keys
+  primaryEndpoint: LLM_PRIMARY_ENDPOINT
+  primaryApiKey: LLM_PRIMARY_API_KEY
+  primaryModel: LLM_PRIMARY_MODEL
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  name: sre-agent-sa
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+  rules:
+    # Spark Operator CRD 权限
+    - apiGroups: ["sparkoperator.k8s.io"]
+      resources: ["sparkapplications", "sparkapplications/status"]
+      verbs: ["get", "list", "watch"]
+    # Pod 权限（日志查询）
+    - apiGroups: [""]
+      resources: ["pods", "pods/log"]
+      verbs: ["get", "list"]
+    # ConfigMap 权限（会话存储）
+    - apiGroups: [""]
+      resources: ["configmaps"]
+      verbs: ["get", "list", "create", "update", "delete"]
+
+# Ingress 配置
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: sre-agent.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# 健康检查
+healthCheck:
+  enabled: true
+  path: /health
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 10
+
+# 巡检配置
+patrol:
+  enabled: true
+  intervalMinutes: 30
+  notificationChannel: feishu
+
+# 亲和性
+affinity: {}
+
+# 容忍
+tolerations: []
+
+# 节点选择器
+nodeSelector: {}

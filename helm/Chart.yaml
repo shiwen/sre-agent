@@ -1,0 +1,20 @@
+apiVersion: v2
+name: sre-agent
+description: SRE Agent for Spark on Kubernetes operations
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - sre
+  - agent
+  - spark
+  - kubernetes
+  - llm
+
+maintainers:
+  - name: Shiwen
+    email: shiwen@example.com
+
+sources:
+  - https://github.com/example/sre-agent

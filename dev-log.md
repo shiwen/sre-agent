@@ -1,70 +1,117 @@
 # SRE Agent 开发日志
 
-## 2026-04-03 - Phase 0 Week 1 Day 3
+## 2026-04-03
 
-### 开发路线图进度
-- **阶段:** Phase 0 - 基础设施搭建
-- **周期:** Week 1 (项目初始化)
-- **当前:** Day 3 - 配置代码规范（ruff、mypy）
+### Phase 0 Week 2 - 完成
 
-### 今日任务清单
-1. ✅ 配置 ruff（Python linter + formatter）
-2. ✅ 配置 mypy（类型检查）
-3. ✅ 配置 isort（import 排序，集成在 ruff 中）
-4. ✅ 创建 pyproject.toml 配置文件
-5. ✅ 创建 pre-commit hooks 配置
-6. ✅ 创建项目目录结构（按架构设计）
-7. ✅ 创建 FastAPI 入口和配置
-8. ✅ 创建 API 路由骨架
-9. ✅ 创建 README 和 .gitignore
-10. ✅ 初始化 Git 仓库
-11. ✅ 设置 Cron Job（每 10 分钟迭代）
-12. ✅ 添加类型注解到所有 API 函数
-13. ✅ 修复 lint 和类型检查问题
-14. ✅ 验收测试通过：ruff check + mypy
+#### 虚拟环境
+- 使用 `virtualenv` 创建隔离的 Python 虚拟环境（`python3-venv` 不可用）
+- 虚拟环境位于 `.venv`，与全局环境完全隔离
+- 所有依赖安装在 `.venv/lib/python3.12/site-packages/`
 
-### 完成情况
-- **Git Commit:** `1e8553f` - Phase 0 Week 1 Day 3: 配置代码规范(ruff、mypy)完成
-- **Cron Job ID:** `6812199d-61f2-4685-be8a-b21eb1f7cc19`
+#### 核心依赖安装
+- fastapi, uvicorn - API 服务
+- langchain-core, langchain-openai, langgraph - LLM 框架
+- pydantic, structlog, tenacity - 基础库
+- pytest, pytest-asyncio, pytest-cov - 测试框架
+- ruff, mypy - 代码规范
 
-### Ruff 配置摘要
-- **Lint rules:** E, W, F, I, B, C4, UP, ARG, SIM, TCH, PTH, ERA, RUF
-- **Ignored:** E501, B008, ARG001, RUF002, RUF003, TC003
-- **Line length:** 100
-- **Target:** Python 3.11
+#### 代码规范
+- Ruff 检查通过
+- 配置了中文文本全角字符忽略规则
 
-### MyPy 配置摘要
-- **Mode:** strict
-- **Python version:** 3.11
-- **Disabled errors for API routes:** untyped-decorator, misc (FastAPI/pytest)
+#### 单元测试
+- 23 个测试全部通过
+- 覆盖率 42%（目标 70%）
 
-### 下一步
-- Day 4: 编写 README 和开发指南（已提前完成）
-- Day 5: 配置 pre-commit hooks（已完成，刚安装到 Git hooks）
-- Day 6: Week 1 验收 - 验证所有工具链可工作
+### Phase 1 Week 3 - 部分完成
 
-### 遗留问题
-- 虚拟环境需要重新创建（需要 python3.12-venv 包）
-- 当前使用系统级安装的开发工具 (--break-system-packages)
+#### LLM Registry ✅
+- 多供应商支持（Primary + Fallback）
+- Failover 机制
+- 意图分类、规划生成、分析响应
+
+#### LangGraph 状态图 ✅
+- AgentState 定义
+- 节点：classify_intent, plan, execute_tool, analyze, respond
+- 条件路由和错误处理
+- 人工审批节点
+
+#### Session Manager ✅
+- 会话创建、获取、删除
+- 消息历史管理
+- 滚动摘要（Token 控制）
+
+#### Spark 工具 ✅
+- spark_list - 查询应用列表
+- spark_get - 获取应用详情
+- spark_logs - 获取日志
+- spark_analyze - 分析日志（错误模式匹配）
+
+#### YuniKorn 工具 ✅
+- yunikorn_queue_list - 队列列表
+- yunikorn_queue_get - 队列详情
+- yunikorn_applications - 队列应用
+
+#### K8s 工具 ✅
+- k8s_pod_list, k8s_pod_get
+- k8s_node_list, k8s_node_get
+- k8s_pod_delete（高风险，需审批）
+
+### Phase 0 基础设施
+
+#### Dockerfile ✅
+- 多阶段构建
+- 非 root 用户
+- 健康检查
+
+#### Helm Chart ✅
+- Deployment, Service, RBAC
+- ServiceAccount
+- 可配置资源限制
+
+#### GitHub Actions CI/CD ✅
+- lint（Ruff + MyPy）
+- test（pytest + coverage）
+- build（Docker 镜像）
+- helm-lint
+
+### 待完成
+
+1. **集成测试** - 需要 K8s 环境或 Mock
+2. **API 路由完善** - chat, spark, queue, patrol
+3. **实际 K8s/YuniKorn 客户端** - 替换 Mock 数据
+4. **错误处理增强** - 更完善的异常处理
+5. **配置管理** - ConfigMap/Secret 读取
+
+### 技术债务
+
+1. ToolRegistry 类变量警告（RUF012）- 已忽略，功能正常
+2. 部分工具参数未使用 - 已忽略，保留接口扩展性
+3. 覆盖率不足 - 需要更多测试用例
 
 ---
 
-## Phase 0 Week 1 进度总览
+## 开发规范
 
-| 任务 | 状态 | 备注 |
-|------|------|------|
-| 创建 Git 仓库 | ✅ | GitHub/GitLab |
-| 初始化 Python 项目 | ✅ | pyproject.toml |
-| 配置代码规范 | ✅ | ruff + mypy |
-| 创建目录结构 | ✅ | 按架构设计 |
-| 编写 README | ✅ | 开发指南 |
-| 配置 pre-commit | ✅ | hooks 已安装到 .git/hooks/pre-commit |
+### 虚拟环境隔离
 
-### Week 1 验收项
-- [x] 代码仓库可克隆
-- [x] 代码规范检查通过 (ruff + mypy)
-- [x] pre-commit hooks 已安装
-- [ ] 开发环境可启动 (需要 python3.12-venv 包)
-- [ ] 单元测试可运行 (需添加测试用例)
+所有 Python 项目必须使用独立的虚拟环境：
+
+```bash
+cd ~/workspace/agent/projects/<project>
+virtualenv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+禁止使用 `--break-system-packages` 污染全局环境。
 
 ---
+
+## 下一步
+
+1. 完善 API 路由和错误处理
+2. 实现实际 K8s/YuniKorn 客户端
+3. 添加集成测试
+4. 部署到测试环境验证
