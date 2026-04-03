@@ -1,14 +1,14 @@
 """LangGraph 节点单元测试"""
 
+from langgraph.types import Command
 import pytest
 
-from app.agent.graph.state import AgentState, Intent, ExecutionStatus
 from app.agent.graph.nodes import (
     classify_intent_node,
     extract_entity_name,
     resolve_variables,
 )
-from langgraph.types import Command
+from app.agent.graph.state import AgentState, ExecutionStatus, Intent
 
 
 @pytest.mark.unit

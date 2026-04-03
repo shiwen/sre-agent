@@ -2,14 +2,37 @@
 
 ## 2026-04-03
 
-### Phase 1 Week 4-5 - 完成 ✅
+### Phase 1 Week 5 - 完成 ✅
 
-#### 提交记录
-- `f44eab5`: feat: Complete Phase 1 implementation (41 files, 5887 lines)
-- `f0e9763`: feat: add Web Portal with React + Vite + Tailwind (34 files, 6618 lines)
-- `e6ed51c`: fix: resolve TypeScript errors in Web Portal
-- `e357fbb`: fix: resolve test failures and asyncio bug
+#### 最新提交
+- `73c8f57`: feat: add SSE streaming and session management
+- `dbeb998`: chore: add pydantic-settings dependency and update dev-log
 - `b82e6b8`: fix: resolve integration test failures
+- `e357fbb`: fix: resolve test failures and asyncio bug
+- `f0e9763`: feat: add Web Portal with React + Vite + Tailwind
+- `f44eab5`: feat: Complete Phase 1 implementation
+
+#### SSE 流式响应 ✅
+- 后端: `/chat/stream` SSE 端点
+- 前端: `sendMessageStream` 支持 SSE
+- 分块发送响应，实时显示
+
+#### 会话管理 ✅
+- 后端: 会话列表/详情/删除 API
+- 前端: SessionSidebar 组件
+- 会话历史持久化（内存存储）
+
+#### Web Portal 完善 ✅
+- 响应式布局（移动端适配）
+- 会话侧边栏
+- 键盘快捷键（Shift+Enter 换行）
+- 加载状态动画
+- Markdown 渲染
+
+#### 测试 ✅
+- 单元测试: 84 passed
+- 集成测试: 16 passed
+- 总计: 100 passed
 
 #### 基础设施完善 ✅
 - Dockerfile: 多阶段构建，添加 curl 健康检查

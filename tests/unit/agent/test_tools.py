@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.agent.tools.base import ToolCategory, get_tool, ToolRegistry
-from app.agent.tools.spark import SparkListTool, SparkLogsTool, SparkAnalyzeTool
 from app.agent.llm.registry import RiskLevel
+from app.agent.tools.base import ToolCategory, ToolRegistry, get_tool
+from app.agent.tools.spark import SparkAnalyzeTool, SparkListTool, SparkLogsTool
 
 
 @pytest.mark.unit

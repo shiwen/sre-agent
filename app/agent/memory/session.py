@@ -1,11 +1,14 @@
 """会话管理器"""
 
+from collections.abc import Callable
 from datetime import datetime
+from functools import wraps
 import hashlib
 import json
 from typing import Any
 import uuid
 
+from kubernetes import client, config
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 from structlog import get_logger
@@ -93,14 +96,138 @@ class Session(BaseModel):
         )
 
 
+def handle_k8s_errors(func: Callable) -> Callable:
+    """K8s 错误处理装饰器"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except config.ConfigException:
+            logger.warning("k8s_config_not_found", fallback="memory")
+            return None
+        except client.exceptions.ApiException as e:
+            logger.warning("k8s_api_error", error=str(e), fallback="memory")
+            return None
+        except Exception as e:
+            logger.error("k8s_unexpected_error", error=str(e))
+            return None
+    return wrapper
+
+
 class SessionManager:
-    """会话管理器"""
+    """会话管理器（支持 K8s ConfigMap 持久化）"""
 
     SUMMARY_THRESHOLD = 10  # 消息数超过此值时生成摘要
+    CONFIGMAP_NAME = "sre-agent-sessions"
+    CONFIGMAP_NAMESPACE = "default"
 
-    def __init__(self) -> None:
+    def __init__(self, use_k8s: bool = True) -> None:
         self._sessions: dict[str, Session] = {}
-        # TODO: K8s ConfigMap 持久化客户端
+        self._k8s_available = False
+        self._k8s_core_v1 = None
+
+        if use_k8s:
+            self._init_k8s_client()
+
+    def _init_k8s_client(self) -> None:
+        """初始化 K8s 客户端"""
+        try:
+            # 尝试加载 K8s 配置
+            try:
+                config.load_incluster_config()
+                logger.info("k8s_incluster_config_loaded")
+            except config.ConfigException:
+                config.load_kube_config()
+                logger.info("k8s_kubeconfig_loaded")
+
+            self._k8s_core_v1 = client.CoreV1Api()
+            self._k8s_available = True
+
+            # 确保 ConfigMap 存在
+            self._ensure_configmap()
+
+        except Exception as e:
+            logger.warning("k8s_init_failed", error=str(e), fallback="memory")
+            self._k8s_available = False
+
+    @handle_k8s_errors
+    def _ensure_configmap(self) -> None:
+        """确保 ConfigMap 存在"""
+        try:
+            self._k8s_core_v1.read_namespaced_config_map(
+                name=self.CONFIGMAP_NAME,
+                namespace=self.CONFIGMAP_NAMESPACE,
+            )
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                # 创建 ConfigMap
+                self._k8s_core_v1.create_namespaced_config_map(
+                    namespace=self.CONFIGMAP_NAMESPACE,
+                    body=client.V1ConfigMap(
+                        metadata=client.V1ObjectMeta(name=self.CONFIGMAP_NAME),
+                        data={},
+                    ),
+                )
+                logger.info("configmap_created", name=self.CONFIGMAP_NAME)
+
+    @handle_k8s_errors
+    def _load_session_from_k8s(self, session_id: str) -> Session | None:
+        """从 K8s ConfigMap 加载会话"""
+        if not self._k8s_available:
+            return None
+
+        cm = self._k8s_core_v1.read_namespaced_config_map(
+            name=self.CONFIGMAP_NAME,
+            namespace=self.CONFIGMAP_NAMESPACE,
+        )
+
+        session_data = cm.data.get(session_id)
+        if session_data:
+            return Session.from_dict(json.loads(session_data))
+        return None
+
+    @handle_k8s_errors
+    def _save_session_to_k8s(self, session: Session) -> bool:
+        """保存会话到 K8s ConfigMap"""
+        if not self._k8s_available:
+            return False
+
+        cm = self._k8s_core_v1.read_namespaced_config_map(
+            name=self.CONFIGMAP_NAME,
+            namespace=self.CONFIGMAP_NAMESPACE,
+        )
+
+        # 更新 data
+        if cm.data is None:
+            cm.data = {}
+        cm.data[session.id] = json.dumps(session.to_dict())
+
+        self._k8s_core_v1.patch_namespaced_config_map(
+            name=self.CONFIGMAP_NAME,
+            namespace=self.CONFIGMAP_NAMESPACE,
+            body=cm,
+        )
+        return True
+
+    @handle_k8s_errors
+    def _delete_session_from_k8s(self, session_id: str) -> bool:
+        """从 K8s ConfigMap 删除会话"""
+        if not self._k8s_available:
+            return False
+
+        cm = self._k8s_core_v1.read_namespaced_config_map(
+            name=self.CONFIGMAP_NAME,
+            namespace=self.CONFIGMAP_NAMESPACE,
+        )
+
+        if cm.data and session_id in cm.data:
+            del cm.data[session_id]
+            self._k8s_core_v1.patch_namespaced_config_map(
+                name=self.CONFIGMAP_NAME,
+                namespace=self.CONFIGMAP_NAMESPACE,
+                body=cm,
+            )
+        return True
 
     def create(self, user_id: str | None = None) -> Session:
         """创建新会话"""
@@ -108,19 +235,30 @@ class SessionManager:
             user_id=user_id or "anonymous",
         )
         self._sessions[session.id] = session
+        self._save_session_to_k8s(session)
         logger.info("session_created", session_id=session.id, user_id=user_id)
         return session
 
     def get(self, session_id: str) -> Session | None:
-        """获取会话"""
-        return self._sessions.get(session_id)
+        """获取会话（优先内存，其次 K8s）"""
+        # 先从内存获取
+        if session_id in self._sessions:
+            return self._sessions[session_id]
+
+        # 尝试从 K8s 加载
+        session = self._load_session_from_k8s(session_id)
+        if session:
+            self._sessions[session_id] = session
+            return session
+
+        return None
 
     def get_or_create(
         self, session_id: str | None = None, user_id: str | None = None
     ) -> Session:
         """获取或创建会话"""
         if session_id:
-            session = self._sessions.get(session_id)
+            session = self.get(session_id)
             if session:
                 return session
 
@@ -129,19 +267,20 @@ class SessionManager:
     def save(self, session: Session) -> None:
         """保存会话"""
         self._sessions[session.id] = session
-        # TODO: 异步持久化到 K8s ConfigMap
+        self._save_session_to_k8s(session)
         logger.debug("session_saved", session_id=session.id)
 
     def delete(self, session_id: str) -> bool:
         """删除会话"""
         if session_id in self._sessions:
             del self._sessions[session_id]
-            logger.info("session_deleted", session_id=session_id)
-            return True
-        return False
+        self._delete_session_from_k8s(session_id)
+        logger.info("session_deleted", session_id=session_id)
+        return True
 
     def list_sessions(self, user_id: str | None = None) -> list[Session]:
         """列出会话"""
+        # TODO: 从 K8s 加载所有会话
         if user_id:
             return [s for s in self._sessions.values() if s.user_id == user_id]
         return list(self._sessions.values())
