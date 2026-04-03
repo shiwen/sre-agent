@@ -16,7 +16,7 @@ Phase 2 Week 7: Patrol Engine
 - [x] Patrol API endpoints
 
 ### Phase 3: History Server Integration (Week 8)
-- [ ] Spark History Server client
+- [x] Spark History Server client
 - [ ] Log parser implementation
 - [ ] Event correlation engine
 
