@@ -1,7 +1,6 @@
 """Kubernetes 客户端封装"""
 
-from typing import Any, Optional
-from functools import lru_cache
+from typing import Any
 
 from structlog import get_logger
 
@@ -10,13 +9,6 @@ logger = get_logger()
 # K8s 客户端（可选依赖）
 try:
     from kubernetes import client, config
-    from kubernetes.client import (
-        CoreV1Api,
-        CustomObjectsApi,
-        V1Pod,
-        V1PodList,
-        V1ConfigMap,
-    )
     KUBERNETES_AVAILABLE = True
 except ImportError:
     KUBERNETES_AVAILABLE = False
@@ -28,8 +20,8 @@ class K8sClient:
 
     def __init__(self, namespace: str = "default"):
         self.namespace = namespace
-        self._core_v1: Optional[Any] = None
-        self._custom_objects: Optional[Any] = None
+        self._core_v1: Any | None = None
+        self._custom_objects: Any | None = None
         self._initialized = False
 
     def _init_client(self) -> None:
@@ -82,9 +74,9 @@ class K8sClient:
 
     def list_pods(
         self,
-        namespace: Optional[str] = None,
-        label_selector: Optional[str] = None,
-        field_selector: Optional[str] = None,
+        namespace: str | None = None,
+        label_selector: str | None = None,
+        field_selector: str | None = None,
     ) -> list[dict[str, Any]]:
         """列出 Pod"""
         ns = namespace or self.namespace
@@ -103,7 +95,7 @@ class K8sClient:
             logger.error("list_pods_failed", error=str(e), namespace=ns)
             return []
 
-    def get_pod(self, name: str, namespace: Optional[str] = None) -> dict[str, Any] | None:
+    def get_pod(self, name: str, namespace: str | None = None) -> dict[str, Any] | None:
         """获取 Pod 详情"""
         ns = namespace or self.namespace
 
@@ -120,8 +112,8 @@ class K8sClient:
     def get_pod_logs(
         self,
         name: str,
-        namespace: Optional[str] = None,
-        container: Optional[str] = None,
+        namespace: str | None = None,
+        container: str | None = None,
         tail_lines: int = 500,
     ) -> str:
         """获取 Pod 日志"""
@@ -142,7 +134,7 @@ class K8sClient:
             logger.error("get_pod_logs_failed", error=str(e), name=name, namespace=ns)
             return f"Error getting logs: {e}"
 
-    def delete_pod(self, name: str, namespace: Optional[str] = None) -> bool:
+    def delete_pod(self, name: str, namespace: str | None = None) -> bool:
         """删除 Pod"""
         ns = namespace or self.namespace
 
@@ -160,7 +152,7 @@ class K8sClient:
 
     # ============ Node 操作 ============
 
-    def list_nodes(self, label_selector: Optional[str] = None) -> list[dict[str, Any]]:
+    def list_nodes(self, label_selector: str | None = None) -> list[dict[str, Any]]:
         """列出 Node"""
         if not self.is_available:
             return self._mock_nodes()
@@ -192,8 +184,8 @@ class K8sClient:
 
     def list_spark_applications(
         self,
-        namespace: Optional[str] = None,
-        label_selector: Optional[str] = None,
+        namespace: str | None = None,
+        label_selector: str | None = None,
     ) -> list[dict[str, Any]]:
         """列出 Spark Application"""
         ns = namespace or self.namespace
@@ -217,7 +209,7 @@ class K8sClient:
     def get_spark_application(
         self,
         name: str,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> dict[str, Any] | None:
         """获取 Spark Application 详情"""
         ns = namespace or self.namespace
@@ -373,7 +365,7 @@ INFO SparkContext: Spark application finished
 
 
 # 全局实例
-_k8s_client: Optional[K8sClient] = None
+_k8s_client: K8sClient | None = None
 
 
 def get_k8s_client(namespace: str = "default") -> K8sClient:

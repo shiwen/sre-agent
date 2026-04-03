@@ -1,13 +1,12 @@
 """巡检检查实现"""
 
 from typing import Any
-from datetime import datetime, timedelta
 
 from structlog import get_logger
 
-from app.patrol.engine import BaseCheck, CheckResult
 from app.infrastructure.k8s_client import get_k8s_client
 from app.infrastructure.yunikorn_client import get_yunikorn_client
+from app.patrol.engine import BaseCheck, CheckResult
 
 logger = get_logger()
 

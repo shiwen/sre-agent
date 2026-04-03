@@ -11,7 +11,7 @@ from app.agent.graph.nodes import (
     respond_node,
 )
 from app.agent.graph.state import AgentState, ExecutionStatus, Intent, PlanStep
-from app.agent.tools.base import register_all_tools
+from app.agent.tools.base import RiskLevel, register_all_tools
 
 
 class TestResolveVariables:
@@ -305,5 +305,4 @@ class TestRespondNode:
         assert "查询失败" in result.update["response"]
 
 
-# 导入 RiskLevel 用于测试
-from app.agent.tools.base import RiskLevel
+

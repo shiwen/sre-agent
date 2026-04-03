@@ -1,6 +1,7 @@
 """YuniKorn 客户端封装"""
 
-from typing import Any, Optional
+from typing import Any
+
 import httpx
 from structlog import get_logger
 
@@ -14,10 +15,10 @@ YUNIKORN_API_PREFIX = "/ws/v1"
 class YuniKornClient:
     """YuniKorn REST API 客户端"""
 
-    def __init__(self, host: Optional[str] = None, timeout: float = 10.0):
+    def __init__(self, host: str | None = None, timeout: float = 10.0):
         self.host = host or YUNIKORN_DEFAULT_HOST
         self.timeout = timeout
-        self._client: Optional[httpx.Client] = None
+        self._client: httpx.Client | None = None
 
     @property
     def client(self) -> httpx.Client:
@@ -46,15 +47,15 @@ class YuniKornClient:
 
     def list_queues(self, partition: str = "default") -> list[dict[str, Any]]:
         """列出所有队列
-        
+
         Args:
             partition: 分区名称，默认为 "default"
-        
+
         Returns:
             队列列表
         """
         result = self._request("GET", f"/partitions/{partition}/queues")
-        
+
         if "error" in result:
             logger.warning("yunikorn_list_queues_failed", fallback="mock")
             return self._mock_queues()
@@ -69,7 +70,7 @@ class YuniKornClient:
         """展平队列树"""
         name = queue.get("queueName", "")
         full_name = f"{parent}.{name}" if parent else name
-        
+
         queue_info = {
             "name": full_name,
             "partition": queue.get("partition"),
@@ -89,16 +90,16 @@ class YuniKornClient:
 
     def get_queue(self, queue_name: str, partition: str = "default") -> dict[str, Any] | None:
         """获取队列详情
-        
+
         Args:
             queue_name: 队列名称
             partition: 分区名称
-        
+
         Returns:
             队列详情
         """
         result = self._request("GET", f"/partitions/{partition}/queues/{queue_name}")
-        
+
         if "error" in result:
             logger.warning("yunikorn_get_queue_failed", queue=queue_name, fallback="mock")
             return self._mock_queue(queue_name)
@@ -132,15 +133,15 @@ class YuniKornClient:
         self,
         queue_name: str = "root",
         partition: str = "default",
-        state: Optional[str] = None,
+        state: str | None = None,
     ) -> list[dict[str, Any]]:
         """列出队列中的应用
-        
+
         Args:
             queue_name: 队列名称
             partition: 分区名称
             state: 状态过滤 (Running, Pending, Completed, Failed)
-        
+
         Returns:
             应用列表
         """
@@ -162,11 +163,11 @@ class YuniKornClient:
 
     def get_application(self, app_id: str, partition: str = "default") -> dict[str, Any] | None:
         """获取应用详情
-        
+
         Args:
             app_id: 应用 ID
             partition: 分区名称
-        
+
         Returns:
             应用详情
         """
@@ -217,7 +218,7 @@ class YuniKornClient:
     def health_check(self) -> dict[str, Any]:
         """健康检查"""
         result = self._request("GET", "/cluster/health")
-        
+
         if "error" in result:
             return {"status": "unhealthy", "error": result["error"]}
 
@@ -263,10 +264,10 @@ class YuniKornClient:
 
 
 # 全局实例
-_yunikorn_client: Optional[YuniKornClient] = None
+_yunikorn_client: YuniKornClient | None = None
 
 
-def get_yunikorn_client(host: Optional[str] = None) -> YuniKornClient:
+def get_yunikorn_client(host: str | None = None) -> YuniKornClient:
     """获取全局 YuniKorn 客户端"""
     global _yunikorn_client
     if _yunikorn_client is None:

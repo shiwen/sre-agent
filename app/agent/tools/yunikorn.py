@@ -100,8 +100,8 @@ class YuniKornQueueGetTool(BaseTool):
         pending = apps.get("pending", 0)
 
         # 计算利用率
-        used = queue.get("current_usage", {}).get("allocated", {})
-        max_cap = queue.get("config", {}).get("max_resources", {})
+        queue.get("current_usage", {}).get("allocated", {})
+        queue.get("config", {}).get("max_resources", {})
 
         analysis = {
             "status": "healthy",

@@ -1,16 +1,13 @@
 """巡检调度器"""
 
-import asyncio
-from datetime import datetime
-from typing import Optional
-import os
+from collections.abc import Callable
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from structlog import get_logger
 
-from app.patrol.engine import get_patrol_engine, PatrolReport
+from app.patrol.engine import PatrolReport, get_patrol_engine
 
 logger = get_logger()
 
@@ -22,16 +19,16 @@ class PatrolScheduler:
         self._scheduler = AsyncIOScheduler()
         self._job_id = "patrol_job"
         self._running = False
-        self._notification_callback: Optional[callable] = None
+        self._notification_callback: Callable | None = None
 
-    def set_notification_callback(self, callback: callable) -> None:
+    def set_notification_callback(self, callback: Callable) -> None:
         """设置通知回调函数"""
         self._notification_callback = callback
 
     def start(
         self,
         interval_minutes: int = 30,
-        notification_callback: Optional[callable] = None,
+        notification_callback: Callable | None = None,
     ) -> None:
         """启动调度器"""
         if self._running:
@@ -139,7 +136,7 @@ class PatrolScheduler:
 
 
 # 全局实例
-_patrol_scheduler: Optional[PatrolScheduler] = None
+_patrol_scheduler: PatrolScheduler | None = None
 
 
 def get_patrol_scheduler() -> PatrolScheduler:

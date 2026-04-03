@@ -1,6 +1,5 @@
 """巡检 API"""
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter

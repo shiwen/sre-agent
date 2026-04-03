@@ -1,10 +1,11 @@
 """会话管理器"""
 
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 import hashlib
 import json
-from typing import Any, Callable
+from typing import Any
 import uuid
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage

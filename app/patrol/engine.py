@@ -1,16 +1,13 @@
 """巡检引擎核心"""
 
-import asyncio
 from abc import ABC, abstractmethod
+import asyncio
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 import uuid
 
 from pydantic import BaseModel, Field
 from structlog import get_logger
-
-from app.infrastructure.k8s_client import get_k8s_client
-from app.infrastructure.yunikorn_client import get_yunikorn_client
 
 logger = get_logger()
 
@@ -30,7 +27,7 @@ class CheckResult(BaseModel):
     severity: str = CheckSeverity.INFO
     message: str
     details: dict[str, Any] = Field(default_factory=dict)
-    resource: Optional[str] = None
+    resource: str | None = None
     suggestions: list[str] = Field(default_factory=list)
     timestamp: datetime = Field(default_factory=datetime.now)
 
@@ -39,7 +36,7 @@ class PatrolReport(BaseModel):
     """巡检报告"""
     id: str = Field(default_factory=lambda: f"patrol-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}")
     start_time: datetime = Field(default_factory=datetime.now)
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     status: str = "running"  # running, completed, failed
     checks: list[CheckResult] = Field(default_factory=list)
     summary: dict[str, Any] = Field(default_factory=dict)
@@ -159,7 +156,7 @@ class PatrolEngine:
             for c in self._checks
         ]
 
-    async def run_patrol(self, check_names: Optional[list[str]] = None) -> PatrolReport:
+    async def run_patrol(self, check_names: list[str] | None = None) -> PatrolReport:
         """执行巡检"""
         report = PatrolReport(
             metadata={
@@ -225,7 +222,7 @@ class PatrolEngine:
                 message=f"检查执行失败: {e}",
             ))
 
-    def get_report(self, report_id: str) -> Optional[PatrolReport]:
+    def get_report(self, report_id: str) -> PatrolReport | None:
         """获取报告"""
         for report in self._reports:
             if report.id == report_id:
@@ -237,13 +234,13 @@ class PatrolEngine:
         reports = self._reports[-limit:]
         return [r.to_dict() for r in reversed(reports)]
 
-    def get_latest_report(self) -> Optional[PatrolReport]:
+    def get_latest_report(self) -> PatrolReport | None:
         """获取最新报告"""
         return self._reports[-1] if self._reports else None
 
 
 # 全局实例
-_patrol_engine: Optional[PatrolEngine] = None
+_patrol_engine: PatrolEngine | None = None
 
 
 def get_patrol_engine() -> PatrolEngine:

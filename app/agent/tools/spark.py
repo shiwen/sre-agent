@@ -218,10 +218,7 @@ class SparkLogsTool(BaseTool):
             return {"error": "缺少 app_name 参数"}
 
         # 构造 Pod 名称
-        if pod_type == "driver":
-            pod_name = f"{app_name}-driver"
-        else:
-            pod_name = f"{app_name}-executor-1"
+        pod_name = f"{app_name}-driver" if pod_type == "driver" else f"{app_name}-executor-1"
 
         # 使用 K8s 客户端获取日志
         k8s = get_k8s_client()
