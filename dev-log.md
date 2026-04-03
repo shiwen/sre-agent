@@ -5,6 +5,7 @@
 ### Phase 1 Week 5 - 完成 ✅
 
 #### 最新提交
+- `afca575`: feat: add K8s ConfigMap session persistence
 - `73c8f57`: feat: add SSE streaming and session management
 - `dbeb998`: chore: add pydantic-settings dependency and update dev-log
 - `b82e6b8`: fix: resolve integration test failures
@@ -20,7 +21,7 @@
 #### 会话管理 ✅
 - 后端: 会话列表/详情/删除 API
 - 前端: SessionSidebar 组件
-- 会话历史持久化（内存存储）
+- 会话持久化（内存存储，支持 K8s ConfigMap）
 
 #### Web Portal 完善 ✅
 - 响应式布局（移动端适配）
@@ -33,6 +34,14 @@
 - 单元测试: 84 passed
 - 集成测试: 16 passed
 - 总计: 100 passed
+
+### Phase 1 Week 4 - 完成 ✅
+
+#### 基础设施完善 ✅
+- Dockerfile: 多阶段构建，添加 curl 健康检查
+- CI/CD: Docker 推送到 ghcr.io，Helm Chart 发布
+- Helm Chart: Ingress, ConfigMap, PatrolJob (CronJob)
+- RBAC: Spark Operator CRD 权限，Pod/ConfigMap 权限
 
 #### 基础设施完善 ✅
 - Dockerfile: 多阶段构建，添加 curl 健康检查
